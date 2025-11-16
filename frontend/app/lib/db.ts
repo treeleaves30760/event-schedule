@@ -1,12 +1,17 @@
-import postgres from 'postgres';
+import { PrismaClient } from '@prisma/client';
 
-const connectionString = process.env.DATABASE_URL!;
+const globalForPrisma = globalThis as unknown as {
+  prisma: PrismaClient | undefined;
+};
 
-// Create a single postgres connection instance
-const sql = postgres(connectionString, {
-  max: 10, // Maximum number of connections
-  idle_timeout: 20,
-  connect_timeout: 10,
+// Create a single Prisma Client instance
+// Reuse the instance in development to avoid creating multiple connections
+export const prisma = globalForPrisma.prisma ?? new PrismaClient({
+  log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
 });
 
-export default sql;
+if (process.env.NODE_ENV !== 'production') {
+  globalForPrisma.prisma = prisma;
+}
+
+export default prisma;

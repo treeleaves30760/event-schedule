@@ -1,15 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
-import sql from '@/app/lib/db';
+import prisma from '@/app/lib/db';
 import { withAuth } from '@/app/lib/middleware';
 
 // GET /api/user/me - Get current user info
 export const GET = withAuth(async (request, { userId }) => {
   try {
-    const [user] = await sql`
-      SELECT id, email, name, "apiToken", "createdAt", "updatedAt"
-      FROM "User"
-      WHERE id = ${userId}
-    `;
+    const user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        apiToken: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
     if (!user) {
       return NextResponse.json(

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import sql from '@/app/lib/db';
+import prisma from '@/app/lib/db';
 import { hashPassword, generateToken, generateApiToken } from '@/app/lib/auth';
-import { randomBytes } from 'crypto';
 
 const registerSchema = z.object({
   email: z.string().email(),
@@ -10,19 +9,16 @@ const registerSchema = z.object({
   name: z.string().optional(),
 });
 
-function generateId() {
-  return randomBytes(16).toString('hex');
-}
-
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const { email, password, name } = registerSchema.parse(body);
 
     // Check if user already exists
-    const [existingUser] = await sql`
-      SELECT id FROM "User" WHERE email = ${email}
-    `;
+    const existingUser = await prisma.user.findUnique({
+      where: { email },
+      select: { id: true },
+    });
 
     if (existingUser) {
       return NextResponse.json(
@@ -34,16 +30,26 @@ export async function POST(request: NextRequest) {
     // Hash password
     const passwordHash = await hashPassword(password);
 
-    // Generate API token and ID
+    // Generate API token
     const apiToken = generateApiToken();
-    const id = generateId();
 
     // Create user
-    const [user] = await sql`
-      INSERT INTO "User" (id, email, name, "passwordHash", "apiToken")
-      VALUES (${id}, ${email}, ${name || null}, ${passwordHash}, ${apiToken})
-      RETURNING id, email, name, "apiToken", "createdAt", "updatedAt"
-    `;
+    const user = await prisma.user.create({
+      data: {
+        email,
+        name: name || null,
+        passwordHash,
+        apiToken,
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        apiToken: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
     // Generate JWT token
     const token = generateToken(user.id);
@@ -58,7 +64,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { success: false, error: error.errors[0].message },
+        { success: false, error: error.issues[0].message },
         { status: 400 }
       );
     }

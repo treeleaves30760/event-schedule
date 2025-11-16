@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import sql from '@/app/lib/db';
+import prisma from '@/app/lib/db';
 import { withAuth } from '@/app/lib/middleware';
-import { randomBytes } from 'crypto';
-
-function generateId() {
-  return randomBytes(16).toString('hex');
-}
 
 const createEventSchema = z.object({
   title: z.string().min(1),
@@ -24,23 +19,25 @@ export const GET = withAuth(async (request, { userId }) => {
     const completed = searchParams.get('completed');
     const type = searchParams.get('type');
 
-    let query = sql`
-      SELECT * FROM "Event"
-      WHERE "userId" = ${userId}
-    `;
+    const where: any = {
+      userId,
+    };
 
     if (completed !== null) {
-      const completedBool = completed === 'true';
-      query = sql`${query} AND completed = ${completedBool}`;
+      where.completed = completed === 'true';
     }
 
     if (type) {
-      query = sql`${query} AND type = ${type}`;
+      where.type = type;
     }
 
-    query = sql`${query} ORDER BY "dueDate" ASC NULLS LAST, "createdAt" DESC`;
-
-    const events = await query;
+    const events = await prisma.event.findMany({
+      where,
+      orderBy: [
+        { dueDate: { sort: 'asc', nulls: 'last' } },
+        { createdAt: 'desc' },
+      ],
+    });
 
     return NextResponse.json({
       success: true,
@@ -61,14 +58,17 @@ export const POST = withAuth(async (request, { userId }) => {
     const body = await request.json();
     const data = createEventSchema.parse(body);
 
-    const id = generateId();
-    const dueDate = data.dueDate ? new Date(data.dueDate) : null;
-
-    const [event] = await sql`
-      INSERT INTO "Event" (id, title, description, type, urgency, importance, "dueDate", "userId")
-      VALUES (${id}, ${data.title}, ${data.description || null}, ${data.type}, ${data.urgency}, ${data.importance}, ${dueDate}, ${userId})
-      RETURNING *
-    `;
+    const event = await prisma.event.create({
+      data: {
+        title: data.title,
+        description: data.description || null,
+        type: data.type,
+        urgency: data.urgency,
+        importance: data.importance,
+        dueDate: data.dueDate ? new Date(data.dueDate) : null,
+        userId,
+      },
+    });
 
     return NextResponse.json({
       success: true,
@@ -77,7 +77,7 @@ export const POST = withAuth(async (request, { userId }) => {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { success: false, error: error.errors[0].message },
+        { success: false, error: error.issues[0].message },
         { status: 400 }
       );
     }

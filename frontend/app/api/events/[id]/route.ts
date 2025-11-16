@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import sql from '@/app/lib/db';
+import prisma from '@/app/lib/db';
 import { withAuth } from '@/app/lib/middleware';
 
 const updateEventSchema = z.object({
@@ -22,10 +22,12 @@ export const GET = withAuth(async (request, { userId }, context: RouteContext) =
   try {
     const { id } = await context.params;
 
-    const [event] = await sql`
-      SELECT * FROM "Event"
-      WHERE id = ${id} AND "userId" = ${userId}
-    `;
+    const event = await prisma.event.findUnique({
+      where: {
+        id,
+        userId,
+      },
+    });
 
     if (!event) {
       return NextResponse.json(
@@ -55,10 +57,13 @@ export const PATCH = withAuth(async (request, { userId }, context: RouteContext)
     const data = updateEventSchema.parse(body);
 
     // Check if event exists and belongs to user
-    const [existingEvent] = await sql`
-      SELECT id FROM "Event"
-      WHERE id = ${id} AND "userId" = ${userId}
-    `;
+    const existingEvent = await prisma.event.findUnique({
+      where: {
+        id,
+        userId,
+      },
+      select: { id: true },
+    });
 
     if (!existingEvent) {
       return NextResponse.json(
@@ -78,16 +83,14 @@ export const PATCH = withAuth(async (request, { userId }, context: RouteContext)
     if (data.completed !== undefined) updateData.completed = data.completed;
 
     if (Object.keys(updateData).length === 0) {
-      const [event] = await sql`SELECT * FROM "Event" WHERE id = ${id}`;
+      const event = await prisma.event.findUnique({ where: { id } });
       return NextResponse.json({ success: true, data: event });
     }
 
-    const [event] = await sql`
-      UPDATE "Event"
-      SET ${sql(updateData, ...Object.keys(updateData))}, "updatedAt" = NOW()
-      WHERE id = ${id}
-      RETURNING *
-    `;
+    const event = await prisma.event.update({
+      where: { id },
+      data: updateData,
+    });
 
     return NextResponse.json({
       success: true,
@@ -96,7 +99,7 @@ export const PATCH = withAuth(async (request, { userId }, context: RouteContext)
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { success: false, error: error.errors[0].message },
+        { success: false, error: error.issues[0].message },
         { status: 400 }
       );
     }
@@ -115,10 +118,13 @@ export const DELETE = withAuth(async (request, { userId }, context: RouteContext
     const { id } = await context.params;
 
     // Check if event exists and belongs to user
-    const [existingEvent] = await sql`
-      SELECT id FROM "Event"
-      WHERE id = ${id} AND "userId" = ${userId}
-    `;
+    const existingEvent = await prisma.event.findUnique({
+      where: {
+        id,
+        userId,
+      },
+      select: { id: true },
+    });
 
     if (!existingEvent) {
       return NextResponse.json(
@@ -127,9 +133,9 @@ export const DELETE = withAuth(async (request, { userId }, context: RouteContext
       );
     }
 
-    await sql`
-      DELETE FROM "Event" WHERE id = ${id}
-    `;
+    await prisma.event.delete({
+      where: { id },
+    });
 
     return NextResponse.json({
       success: true,

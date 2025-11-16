@@ -1,13 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import OpenAI from 'openai';
-import sql from '@/app/lib/db';
+import prisma from '@/app/lib/db';
 import { withAuth } from '@/app/lib/middleware';
-import { randomBytes } from 'crypto';
-
-function generateId() {
-  return randomBytes(16).toString('hex');
-}
 
 const aiCreateSchema = z.object({
   prompt: z.string().min(1),
@@ -69,16 +64,21 @@ Return ONLY the JSON object, no additional text.`,
     const eventData = JSON.parse(content);
 
     // Validate and create the event
-    const id = generateId();
     const urgency = Math.min(5, Math.max(1, eventData.urgency || 3));
     const importance = Math.min(5, Math.max(1, eventData.importance || 3));
     const dueDate = eventData.dueDate ? new Date(eventData.dueDate) : null;
 
-    const [event] = await sql`
-      INSERT INTO "Event" (id, title, description, type, urgency, importance, "dueDate", "userId")
-      VALUES (${id}, ${eventData.title}, ${eventData.description || null}, ${eventData.type || 'event'}, ${urgency}, ${importance}, ${dueDate}, ${userId})
-      RETURNING *
-    `;
+    const event = await prisma.event.create({
+      data: {
+        title: eventData.title,
+        description: eventData.description || null,
+        type: eventData.type || 'event',
+        urgency,
+        importance,
+        dueDate,
+        userId,
+      },
+    });
 
     return NextResponse.json({
       success: true,
@@ -87,7 +87,7 @@ Return ONLY the JSON object, no additional text.`,
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { success: false, error: error.errors[0].message },
+        { success: false, error: error.issues[0].message },
         { status: 400 }
       );
     }

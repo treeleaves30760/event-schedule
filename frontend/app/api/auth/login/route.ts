@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import sql from '@/app/lib/db';
+import prisma from '@/app/lib/db';
 import { verifyPassword, generateToken } from '@/app/lib/auth';
 
 const loginSchema = z.object({
@@ -14,11 +14,18 @@ export async function POST(request: NextRequest) {
     const { email, password } = loginSchema.parse(body);
 
     // Find user
-    const [user] = await sql`
-      SELECT id, email, name, "passwordHash", "apiToken", "createdAt", "updatedAt"
-      FROM "User"
-      WHERE email = ${email}
-    `;
+    const user = await prisma.user.findUnique({
+      where: { email },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        passwordHash: true,
+        apiToken: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
 
     if (!user || !user.passwordHash) {
       return NextResponse.json(
@@ -53,7 +60,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof z.ZodError) {
       return NextResponse.json(
-        { success: false, error: error.errors[0].message },
+        { success: false, error: error.issues[0].message },
         { status: 400 }
       );
     }
