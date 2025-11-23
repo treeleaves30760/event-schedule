@@ -58,7 +58,9 @@ Extract the following information and return it as a JSON object:
 - type: one of "event", "homework", "meeting", "task", "reminder", or "other" (default: "event")
 - urgency: number from 1-5, where 5 is most urgent (default: 3)
 - importance: number from 1-5, where 5 is most important (default: 3)
-- dueDate: ISO 8601 datetime string (optional, only if a date/time is mentioned)
+- dueDate: ISO 8601 datetime string (optional, only if a deadline is mentioned)
+- startTime: ISO 8601 datetime string (optional, for when the event starts)
+- endTime: ISO 8601 datetime string (optional, for when the event ends)
 
 Consider these factors for urgency and importance:
 - Urgency: How time-sensitive is this? Deadlines, time-based tasks are more urgent
@@ -67,12 +69,14 @@ Consider these factors for urgency and importance:
 When calculating dates and times:
 - Use the current date/time provided by the user as reference
 - For relative dates like "tomorrow", "next week", calculate based on current time
-- Always output dueDate in ISO 8601 format with timezone (e.g., "${tomorrowISO}")
+- Always output dates in ISO 8601 format with timezone (e.g., "${tomorrowISO}")
 - Consider the user's timezone (Asia/Taipei, UTC+8)
+- Use startTime and endTime for events with specific time ranges
+- Use dueDate for deadlines or tasks that need to be completed by a certain time
 
 Examples (based on current time):
 "Submit homework by tomorrow 5pm" -> {"title": "Submit homework", "type": "homework", "urgency": 5, "importance": 4, "dueDate": "${tomorrowISO}"}
-"Team meeting next Monday at 2pm" -> {"title": "Team meeting", "type": "meeting", "urgency": 3, "importance": 3, "dueDate": "${nextMondayISO}"}
+"Team meeting next Monday at 2pm" -> {"title": "Team meeting", "type": "meeting", "urgency": 3, "importance": 3, "startTime": "${nextMondayISO}"}
 "Plan vacation for next month" -> {"title": "Plan vacation", "type": "task", "urgency": 2, "importance": 3}
 
 Return ONLY the JSON object, no additional text.`;
@@ -148,6 +152,8 @@ export const POST = withAuth(async (request, { userId }) => {
     const urgency = Math.min(5, Math.max(1, eventData.urgency || 3));
     const importance = Math.min(5, Math.max(1, eventData.importance || 3));
     const dueDate = eventData.dueDate ? new Date(eventData.dueDate) : null;
+    const startTime = eventData.startTime ? new Date(eventData.startTime) : null;
+    const endTime = eventData.endTime ? new Date(eventData.endTime) : null;
 
     const event = await prisma.event.create({
       data: {
@@ -157,6 +163,8 @@ export const POST = withAuth(async (request, { userId }) => {
         urgency,
         importance,
         dueDate,
+        startTime,
+        endTime,
         userId,
       },
     });

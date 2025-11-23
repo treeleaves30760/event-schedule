@@ -10,6 +10,8 @@ const updateEventSchema = z.object({
   urgency: z.number().int().min(1).max(5).optional(),
   importance: z.number().int().min(1).max(5).optional(),
   dueDate: z.string().datetime().optional().nullable(),
+  startTime: z.string().datetime().optional().nullable(),
+  endTime: z.string().datetime().optional().nullable(),
   completed: z.boolean().optional(),
 });
 
@@ -80,6 +82,8 @@ export const PATCH = withAuth(async (request, { userId }, context: RouteContext)
     if (data.urgency !== undefined) updateData.urgency = data.urgency;
     if (data.importance !== undefined) updateData.importance = data.importance;
     if (data.dueDate !== undefined) updateData.dueDate = data.dueDate ? new Date(data.dueDate) : null;
+    if (data.startTime !== undefined) updateData.startTime = data.startTime ? new Date(data.startTime) : null;
+    if (data.endTime !== undefined) updateData.endTime = data.endTime ? new Date(data.endTime) : null;
     if (data.completed !== undefined) updateData.completed = data.completed;
 
     if (Object.keys(updateData).length === 0) {

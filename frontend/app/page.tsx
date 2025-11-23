@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Plus, LogOut, Calendar, Grid3x3 } from 'lucide-react';
+import { Plus, LogOut, Calendar, Grid3x3, List } from 'lucide-react';
 import { useAuth } from './contexts/AuthContext';
 import { useEvents } from './contexts/EventContext';
 import { LoginForm } from './components/LoginForm';
@@ -10,6 +10,7 @@ import { EventCard } from './components/EventCard';
 import { EventForm } from './components/EventForm';
 import { AIEventCreator } from './components/AIEventCreator';
 import { PriorityMatrix } from './components/PriorityMatrix';
+import { CalendarView } from './components/CalendarView';
 import { Button } from './components/ui/Button';
 import { Card, CardContent, CardHeader } from './components/ui/Card';
 import type { Event } from './types';
@@ -20,7 +21,7 @@ export default function Home() {
   const [showRegister, setShowRegister] = useState(false);
   const [showEventForm, setShowEventForm] = useState(false);
   const [editingEvent, setEditingEvent] = useState<Event | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'matrix'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'matrix' | 'calendar'>('calendar');
 
   if (authLoading) {
     return (
@@ -73,14 +74,32 @@ export default function Home() {
               </p>
             </div>
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setViewMode(viewMode === 'list' ? 'matrix' : 'list')}
-              >
-                {viewMode === 'list' ? <Grid3x3 className="w-4 h-4 mr-2" /> : <Calendar className="w-4 h-4 mr-2" />}
-                {viewMode === 'list' ? 'Matrix View' : 'List View'}
-              </Button>
+              <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+                <Button
+                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('list')}
+                  className="h-8"
+                >
+                  <List className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('calendar')}
+                  className="h-8"
+                >
+                  <Calendar className="w-4 h-4" />
+                </Button>
+                <Button
+                  variant={viewMode === 'matrix' ? 'default' : 'ghost'}
+                  size="sm"
+                  onClick={() => setViewMode('matrix')}
+                  className="h-8"
+                >
+                  <Grid3x3 className="w-4 h-4" />
+                </Button>
+              </div>
               <Button variant="ghost" size="sm" onClick={logout}>
                 <LogOut className="w-4 h-4 mr-2" />
                 Logout
@@ -148,7 +167,12 @@ export default function Home() {
 
           {/* Right Column - Events Display */}
           <div className="lg:col-span-2">
-            {viewMode === 'matrix' ? (
+            {viewMode === 'calendar' ? (
+              <CalendarView
+                events={events}
+                onEventClick={(event) => setEditingEvent(event)}
+              />
+            ) : viewMode === 'matrix' ? (
               <PriorityMatrix
                 events={events}
                 onEventClick={(event) => setEditingEvent(event)}

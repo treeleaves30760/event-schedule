@@ -10,6 +10,8 @@ const createEventSchema = z.object({
   urgency: z.number().int().min(1).max(5),
   importance: z.number().int().min(1).max(5),
   dueDate: z.string().datetime().optional(),
+  startTime: z.string().datetime().optional(),
+  endTime: z.string().datetime().optional(),
 });
 
 // GET /api/events - List all events for the authenticated user
@@ -66,6 +68,8 @@ export const POST = withAuth(async (request, { userId }) => {
         urgency: data.urgency,
         importance: data.importance,
         dueDate: data.dueDate ? new Date(data.dueDate) : null,
+        startTime: data.startTime ? new Date(data.startTime) : null,
+        endTime: data.endTime ? new Date(data.endTime) : null,
         userId,
       },
     });

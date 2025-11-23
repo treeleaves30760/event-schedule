@@ -9,6 +9,8 @@ export interface Event {
   urgency: number; // 1-5
   importance: number; // 1-5
   dueDate: Date | null;
+  startTime: Date | null;
+  endTime: Date | null;
   completed: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -22,6 +24,8 @@ export interface CreateEventInput {
   urgency: number;
   importance: number;
   dueDate?: Date;
+  startTime?: Date;
+  endTime?: Date;
 }
 
 export interface UpdateEventInput {
@@ -31,6 +35,8 @@ export interface UpdateEventInput {
   urgency?: number;
   importance?: number;
   dueDate?: Date;
+  startTime?: Date;
+  endTime?: Date;
   completed?: boolean;
 }
 
