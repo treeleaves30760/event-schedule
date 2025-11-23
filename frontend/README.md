@@ -13,12 +13,13 @@ A modern event scheduling application with AI-powered event creation, priority m
 - [Usage Guide](#usage-guide)
 - [API Documentation](#api-documentation)
 - [Technologies](#technologies)
+- [Deployment & Production](#deployment--production)
 - [Troubleshooting](#troubleshooting)
 
 ## Features
 
 - **Visual Prioritization**: View events in a 5x5 priority matrix based on urgency and importance
-- **AI-Powered Event Creation**: Use natural language to create events with OpenAI integration
+- **AI-Powered Event Creation**: Use natural language to create events with OpenAI or Ollama integration
 - **Multiple Event Types**: Support for events, homework, meetings, tasks, and reminders
 - **Authentication**: Both local authentication (JWT) and Auth0 OAuth integration
 - **API Access**: Generate API tokens for programmatic access
@@ -35,7 +36,9 @@ Before you begin, ensure you have the following installed:
   ```bash
   npm install -g pnpm
   ```
-- **OpenAI API Key** (for AI features) - Get from [OpenAI Platform](https://platform.openai.com/api-keys)
+- **AI Provider** (choose one for AI features):
+  - **OpenAI API Key** - Get from [OpenAI Platform](https://platform.openai.com/api-keys)
+  - **Ollama** - Install locally from [Ollama.ai](https://ollama.ai) and pull a model (e.g., `ollama pull llama3`)
 - **Auth0 Account** (optional, for OAuth authentication) - Sign up at [Auth0](https://auth0.com)
 - **Supabase Account** (optional, for PostgreSQL database) - Sign up at [Supabase](https://supabase.com)
 
@@ -76,8 +79,16 @@ Before you begin, ensure you have the following installed:
    # JWT Secret (required for local authentication)
    JWT_SECRET="your-generated-secret-here"
 
-   # OpenAI API Key (required for AI features)
+   # LLM Provider (choose "openai" or "ollama")
+   LLM_PROVIDER="openai"
+
+   # OpenAI Configuration (when using OpenAI)
    OPENAI_API_KEY="sk-your-openai-api-key-here"
+   OPENAI_MODEL="gpt-4o-mini"
+
+   # Ollama Configuration (when using Ollama)
+   OLLAMA_ENDPOINT="http://localhost:11434"
+   OLLAMA_MODEL="llama3"
    ```
 
    ### Generate JWT Secret
@@ -85,6 +96,35 @@ Before you begin, ensure you have the following installed:
    openssl rand -hex 32
    ```
    Copy the output and paste it as your `JWT_SECRET` value.
+
+   ### AI Provider Setup
+
+   **Option 1: Using OpenAI**
+   1. Set `LLM_PROVIDER="openai"`
+   2. Get your API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+   3. Set `OPENAI_API_KEY` to your API key
+   4. (Optional) Change `OPENAI_MODEL` to use a different model (default: gpt-4o-mini)
+
+   **Option 2: Using Ollama (Local LLM)**
+   1. Install Ollama from [Ollama.ai](https://ollama.ai)
+   2. Pull a model:
+      ```bash
+      ollama pull llama3
+      # Or other models: mistral, gemma, etc.
+      ```
+   3. Start Ollama server (usually runs automatically):
+      ```bash
+      ollama serve
+      ```
+   4. Set `LLM_PROVIDER="ollama"`
+   5. Configure `OLLAMA_ENDPOINT` (default: http://localhost:11434)
+   6. Set `OLLAMA_MODEL` to your pulled model name
+
+   **Benefits of Ollama:**
+   - 🔒 Privacy: Run LLM locally, no data sent to external APIs
+   - 💰 Cost-effective: No API usage fees
+   - ⚡ No API rate limits
+   - 🌐 Works offline
 
    ### Optional Configuration
 
@@ -345,20 +385,77 @@ curl -X DELETE \
 - **@auth0/nextjs-auth0** for OAuth
 
 ### AI Integration
-- **OpenAI API** (GPT-4) for natural language processing
+- **OpenAI API** (GPT-4o-mini) for natural language processing
+- **Ollama** for local LLM inference (llama3, mistral, gemma, etc.)
 
 ### Utilities
 - **Zod** for runtime validation
 - **date-fns** for date manipulation
 - **clsx** & **tailwind-merge** for className management
 
+## Deployment & Production
+
+### Production Deployment Guides
+
+For production deployment and self-hosting, please refer to our comprehensive documentation:
+
+- **[Complete Deployment Checklist](./docs/DEPLOYMENT_CHECKLIST.md)**
+  - Step-by-step guide for local and production deployment
+  - Development environment setup (SQLite, Ollama)
+  - Production environment setup (Supabase, OpenAI)
+  - Security configuration checklist
+  - Testing and verification steps
+  - Deployment options (Vercel, Docker, VPS)
+
+- **[Supabase Security Setup](./docs/deployment/SUPABASE_SECURITY.md)**
+  - Understanding Row Level Security (RLS)
+  - Security risks and mitigation
+  - Complete RLS setup guide
+  - Policy explanations
+  - Production security best practices
+
+- **[RLS Setup SQL Script](./docs/deployment/supabase_rls_setup.sql)**
+  - Ready-to-use SQL script for Supabase
+  - Enables RLS on all tables
+  - Creates security policies
+  - Fixes function security issues
+
+### Quick Production Checklist
+
+Before deploying to production, ensure you have:
+
+- [ ] Set up Supabase database with proper connection strings
+- [ ] **Executed RLS setup script** (critical for security!)
+- [ ] Generated secure JWT_SECRET (`openssl rand -hex 32`)
+- [ ] Configured AI provider (OpenAI or Ollama)
+- [ ] Set up SSL/HTTPS for your domain
+- [ ] Tested all features (auth, events, API)
+- [ ] Verified data isolation between users
+- [ ] Set up monitoring and logging
+- [ ] Configured automated backups
+
+⚠️ **Important**: Not setting up RLS will expose all user data to anyone with database access. This is a critical security vulnerability.
+
+📖 **For detailed instructions**, see the [Complete Deployment Checklist](./docs/DEPLOYMENT_CHECKLIST.md).
+
 ## Troubleshooting
 
 ### Database Issues
 
-**Problem**: Database connection errors
+**Problem**: Database connection errors or "Cannot connect to database"
 
-**Solution**: Run the database migration:
+**Solution**: Initialize the database with Prisma migrations:
+```bash
+npx prisma migrate dev --name init
+```
+
+This command will:
+- Create the database file if it doesn't exist
+- Apply all pending migrations
+- Generate Prisma Client
+- Set up the schema properly
+
+Alternatively, you can use:
 ```bash
 pnpm migrate
 ```
@@ -369,6 +466,7 @@ pnpm migrate
 1. Ensure your Supabase project is active (not paused)
 2. Verify `DATABASE_URL` is correctly set and password is URL-encoded
 3. Check that you can connect to Supabase from your network
+4. If issues persist, try: `npx prisma migrate dev --name init`
 
 ### Authentication Issues
 
@@ -388,12 +486,52 @@ pnpm migrate
 
 ### OpenAI Issues
 
-**Problem**: AI event creation fails
+**Problem**: AI event creation fails with OpenAI
 
 **Solution**:
 1. Verify `OPENAI_API_KEY` is correct
 2. Check your OpenAI account has credits
 3. Ensure key starts with `sk-`
+4. Confirm `LLM_PROVIDER="openai"` in `.env`
+
+### Ollama Issues
+
+**Problem**: AI event creation fails with Ollama
+
+**Solution**:
+1. Ensure Ollama is installed and running:
+   ```bash
+   ollama list  # Check installed models
+   ollama serve # Start Ollama server
+   ```
+2. Verify the model is pulled:
+   ```bash
+   ollama pull llama3  # Or your chosen model
+   ```
+3. Check `OLLAMA_ENDPOINT` is accessible:
+   ```bash
+   curl http://localhost:11434/api/tags
+   ```
+4. Confirm environment variables:
+   - `LLM_PROVIDER="ollama"`
+   - `OLLAMA_MODEL` matches an installed model
+   - `OLLAMA_ENDPOINT` is correct (default: http://localhost:11434)
+
+**Problem**: Ollama response is slow
+
+**Solution**:
+1. Ollama models run on your local hardware - performance depends on your CPU/GPU
+2. Consider using a smaller model like `llama3:8b` instead of `llama3:70b`
+3. First inference is slower (model loading), subsequent requests are faster
+4. Check Ollama is using GPU acceleration if available
+
+**Problem**: Ollama connection refused
+
+**Solution**:
+1. Ensure Ollama server is running: `ollama serve`
+2. Check if the port is already in use: `lsof -i :11434`
+3. Verify firewall settings allow localhost connections
+4. Try restarting Ollama
 
 ### Development Server Issues
 
