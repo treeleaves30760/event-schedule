@@ -53,12 +53,35 @@ export function CalendarView({ events, onEventClick }: CalendarViewProps) {
     const grouped = new Map<string, Event[]>();
 
     events.forEach((event) => {
-      if (event.dueDate) {
-        const dateKey = new Date(event.dueDate).toDateString();
-        if (!grouped.has(dateKey)) {
-          grouped.set(dateKey, []);
+      // If event has both startTime and endTime, show it on all dates in between
+      if (event.startTime && event.endTime) {
+        const start = new Date(event.startTime);
+        const end = new Date(event.endTime);
+
+        // Set to start of day for comparison
+        start.setHours(0, 0, 0, 0);
+        end.setHours(0, 0, 0, 0);
+
+        // Add event to all dates between start and end (inclusive)
+        const currentDate = new Date(start);
+        while (currentDate <= end) {
+          const dateKey = currentDate.toDateString();
+          if (!grouped.has(dateKey)) {
+            grouped.set(dateKey, []);
+          }
+          grouped.get(dateKey)!.push(event);
+          currentDate.setDate(currentDate.getDate() + 1);
         }
-        grouped.get(dateKey)!.push(event);
+      } else {
+        // Prefer startTime, fall back to dueDate
+        const eventDate = event.startTime || event.dueDate;
+        if (eventDate) {
+          const dateKey = new Date(eventDate).toDateString();
+          if (!grouped.has(dateKey)) {
+            grouped.set(dateKey, []);
+          }
+          grouped.get(dateKey)!.push(event);
+        }
       }
     });
 
@@ -176,21 +199,25 @@ export function CalendarView({ events, onEventClick }: CalendarViewProps) {
 
                     {/* Events for this day */}
                     <div className="space-y-1">
-                      {dayEvents.slice(0, 3).map((event) => (
-                        <button
-                          key={event.id}
-                          onClick={() => onEventClick?.(event)}
-                          className={`
-                            w-full text-left text-xs px-2 py-1 rounded
-                            truncate hover:opacity-80 transition-opacity
-                            ${getEventTypeColor(event.type)}
-                            ${event.completed ? 'opacity-50 line-through' : ''}
-                          `}
-                          title={event.title}
-                        >
-                          {event.title}
-                        </button>
-                      ))}
+                      {dayEvents.slice(0, 3).map((event) => {
+                        return (
+                          <button
+                            key={event.id}
+                            onClick={() => onEventClick?.(event)}
+                            className={`
+                              w-full text-left text-xs px-2 py-1 rounded
+                              hover:opacity-80 transition-opacity
+                              ${getEventTypeColor(event.type)}
+                              ${event.completed ? 'opacity-50 line-through' : ''}
+                            `}
+                            title={event.title}
+                          >
+                            <div className="truncate">
+                              {event.title}
+                            </div>
+                          </button>
+                        );
+                      })}
 
                       {/* Show "+N more" if there are more events */}
                       {dayEvents.length > 3 && (
@@ -226,14 +253,14 @@ export function CalendarView({ events, onEventClick }: CalendarViewProps) {
         </div>
 
         {/* Events without dates */}
-        {events.filter(e => !e.dueDate).length > 0 && (
+        {events.filter(e => !e.startTime && !e.dueDate).length > 0 && (
           <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
             <h3 className="text-sm font-semibold text-gray-900 dark:text-gray-100 mb-2">
-              Events without due dates ({events.filter(e => !e.dueDate).length})
+              Events without dates ({events.filter(e => !e.startTime && !e.dueDate).length})
             </h3>
             <div className="space-y-1">
               {events
-                .filter(e => !e.dueDate)
+                .filter(e => !e.startTime && !e.dueDate)
                 .slice(0, 5)
                 .map((event) => (
                   <button
@@ -249,9 +276,9 @@ export function CalendarView({ events, onEventClick }: CalendarViewProps) {
                     {event.title}
                   </button>
                 ))}
-              {events.filter(e => !e.dueDate).length > 5 && (
+              {events.filter(e => !e.startTime && !e.dueDate).length > 5 && (
                 <div className="text-xs text-gray-500 dark:text-gray-400 px-3">
-                  +{events.filter(e => !e.dueDate).length - 5} more without dates
+                  +{events.filter(e => !e.startTime && !e.dueDate).length - 5} more without dates
                 </div>
               )}
             </div>

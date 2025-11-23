@@ -75,6 +75,10 @@ class ApiClient {
     });
   }
 
+  async getCurrentUser() {
+    return this.request<User>('/api/user/me');
+  }
+
   // Event endpoints
   async getEvents(params?: { completed?: boolean; type?: string }) {
     const queryParams = new URLSearchParams();

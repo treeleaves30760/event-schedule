@@ -21,13 +21,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     // Check if user is already logged in
-    const token = apiClient.getToken();
-    if (token) {
-      // You might want to validate the token by fetching user data
+    const loadUser = async () => {
+      const token = apiClient.getToken();
+      if (token) {
+        try {
+          // Validate the token by fetching user data
+          const response = await apiClient.getCurrentUser();
+          if (response.success && response.data) {
+            setUser(response.data);
+          } else {
+            // Token is invalid, clear it
+            apiClient.setToken(null);
+          }
+        } catch (error) {
+          // Error fetching user, clear token
+          apiClient.setToken(null);
+        }
+      }
       setIsLoading(false);
-    } else {
-      setIsLoading(false);
-    }
+    };
+
+    loadUser();
   }, []);
 
   const login = async (email: string, password: string) => {
