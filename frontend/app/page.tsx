@@ -25,15 +25,15 @@ export default function Home() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900">
-        <div className="text-gray-600 dark:text-gray-400">Loading...</div>
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-muted-foreground animate-pulse">Loading...</div>
       </div>
     );
   }
 
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-gray-900 p-4">
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
         {showRegister ? (
           <RegisterForm onSwitchToLogin={() => setShowRegister(false)} />
         ) : (
@@ -60,23 +60,23 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700">
+      <header className="sticky top-0 z-50 w-full border-b border-border bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">
+              <h1 className="text-2xl font-bold text-foreground tracking-tight">
                 Event Schedule
               </h1>
-              <p className="text-sm text-gray-600 dark:text-gray-400">
+              <p className="text-sm text-muted-foreground">
                 Welcome back, {user.name || user.email}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-1 bg-secondary rounded-lg p-1">
                 <Button
-                  variant={viewMode === 'list' ? 'default' : 'ghost'}
+                  variant={viewMode === 'list' ? 'primary' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('list')}
                   className="h-8"
@@ -84,7 +84,7 @@ export default function Home() {
                   <List className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant={viewMode === 'calendar' ? 'default' : 'ghost'}
+                  variant={viewMode === 'calendar' ? 'primary' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('calendar')}
                   className="h-8"
@@ -92,7 +92,7 @@ export default function Home() {
                   <Calendar className="w-4 h-4" />
                 </Button>
                 <Button
-                  variant={viewMode === 'matrix' ? 'default' : 'ghost'}
+                  variant={viewMode === 'matrix' ? 'primary' : 'ghost'}
                   size="sm"
                   onClick={() => setViewMode('matrix')}
                   className="h-8"
@@ -100,7 +100,7 @@ export default function Home() {
                   <Grid3x3 className="w-4 h-4" />
                 </Button>
               </div>
-              <Button variant="ghost" size="sm" onClick={logout}>
+              <Button variant="ghost" size="sm" onClick={logout} className="text-muted-foreground hover:text-foreground">
                 <LogOut className="w-4 h-4 mr-2" />
                 Logout
               </Button>
@@ -111,7 +111,7 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Left Column - Event Creation */}
           <div className="lg:col-span-1 space-y-6">
             <AIEventCreator />
@@ -119,10 +119,10 @@ export default function Home() {
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+                  <h2 className="text-lg font-semibold text-foreground">
                     Manual Entry
                   </h2>
-                  <Button size="sm" onClick={() => setShowEventForm(!showEventForm)}>
+                  <Button size="sm" onClick={() => setShowEventForm(!showEventForm)} variant="outline">
                     <Plus className="w-4 h-4 mr-1" />
                     New Event
                   </Button>
@@ -140,23 +140,25 @@ export default function Home() {
 
             {/* Stats */}
             <Card>
-              <CardContent className="p-4">
-                <div className="space-y-2">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Total Events</span>
-                    <span className="font-semibold text-gray-900 dark:text-gray-100">
+              <CardContent className="p-6">
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Total Events</span>
+                    <span className="font-bold text-foreground text-lg">
                       {events.length}
                     </span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Completed</span>
-                    <span className="font-semibold text-green-600 dark:text-green-400">
+                  <div className="h-px bg-border" />
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Completed</span>
+                    <span className="font-bold text-green-600 dark:text-green-400 text-lg">
                       {events.filter(e => e.completed).length}
                     </span>
                   </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600 dark:text-gray-400">Active</span>
-                    <span className="font-semibold text-blue-600 dark:text-blue-400">
+                  <div className="h-px bg-border" />
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Active</span>
+                    <span className="font-bold text-primary text-lg">
                       {events.filter(e => !e.completed).length}
                     </span>
                   </div>
@@ -180,17 +182,17 @@ export default function Home() {
             ) : (
               <div className="space-y-6">
                 <div>
-                  <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-4">
+                  <h2 className="text-xl font-bold text-foreground mb-4">
                     Your Events
                   </h2>
                   {eventsLoading ? (
-                    <div className="text-center text-gray-600 dark:text-gray-400 py-8">
+                    <div className="text-center text-muted-foreground py-12">
                       Loading events...
                     </div>
                   ) : events.length === 0 ? (
                     <Card>
-                      <CardContent className="p-8 text-center">
-                        <p className="text-gray-600 dark:text-gray-400">
+                      <CardContent className="p-12 text-center">
+                        <p className="text-muted-foreground">
                           No events yet. Create one using AI or manual entry!
                         </p>
                       </CardContent>
@@ -211,7 +213,7 @@ export default function Home() {
 
                       {events.filter(e => e.completed).length > 0 && (
                         <>
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mt-6 mb-3">
+                          <h3 className="text-lg font-semibold text-foreground mt-8 mb-4">
                             Completed Events
                           </h3>
                           {events
@@ -238,10 +240,10 @@ export default function Home() {
 
       {/* Edit Event Modal */}
       {editingEvent && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <Card className="max-w-md w-full">
+        <div className="fixed inset-0 bg-background/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <Card className="max-w-md w-full shadow-lg">
             <CardHeader>
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
+              <h2 className="text-lg font-semibold text-foreground">
                 Edit Event
               </h2>
             </CardHeader>
