@@ -1,15 +1,14 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Sparkles } from 'lucide-react';
+import { Sparkles, CheckCircle, AlertCircle } from 'lucide-react';
 import { Button } from './ui/Button';
-import { Input } from './ui/Input';
 import { useEvents } from '@/app/contexts/EventContext';
 
 export function AIEventCreator() {
   const [prompt, setPrompt] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [resultMessage, setResultMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const { createEventFromAI } = useEvents();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -17,18 +16,26 @@ export function AIEventCreator() {
     if (!prompt.trim()) return;
 
     setIsLoading(true);
-    setError('');
+    setResultMessage(null);
 
     try {
       const result = await createEventFromAI(prompt);
 
       if (result.success) {
         setPrompt('');
+        const count = Array.isArray(result.data) ? result.data.length : 1;
+        setResultMessage({ 
+          type: 'success', 
+          text: result.message || `Successfully processed ${count} event${count !== 1 ? 's' : ''}` 
+        });
+        
+        // Clear success message after 5 seconds
+        setTimeout(() => setResultMessage(null), 5000);
       } else {
-        setError(result.error || 'Failed to create event');
+        setResultMessage({ type: 'error', text: result.error || 'Failed to process events' });
       }
     } catch (err) {
-      setError('An error occurred');
+      setResultMessage({ type: 'error', text: 'An error occurred' });
     } finally {
       setIsLoading(false);
     }
@@ -39,18 +46,33 @@ export function AIEventCreator() {
       <div className="flex items-center gap-2 mb-3">
         <Sparkles className="w-5 h-5 text-purple-600 dark:text-purple-400" />
         <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Create Event with AI
+          Create & Update Events with AI
         </h3>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-3">
-        <Input
-          value={prompt}
-          onChange={(e) => setPrompt(e.target.value)}
-          placeholder='Try: "Submit project report by Friday 5pm" or "Team standup every Monday at 10am"'
-          disabled={isLoading}
-          error={error}
-        />
+        <div className="relative">
+          <textarea
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            placeholder='Try: "Meeting tomorrow at 2pm. Change the Team Standup to 11am."'
+            disabled={isLoading}
+            className="w-full min-h-[100px] p-3 rounded-md border border-gray-300 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-purple-500 focus:border-transparent resize-y text-sm"
+          />
+        </div>
+
+        {resultMessage && (
+          <div className={`text-sm flex items-center gap-2 ${
+            resultMessage.type === 'success' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'
+          }`}>
+            {resultMessage.type === 'success' ? (
+              <CheckCircle className="w-4 h-4" />
+            ) : (
+              <AlertCircle className="w-4 h-4" />
+            )}
+            {resultMessage.text}
+          </div>
+        )}
 
         <Button
           type="submit"
@@ -60,24 +82,23 @@ export function AIEventCreator() {
           {isLoading ? (
             <>
               <Sparkles className="w-4 h-4 mr-2 animate-spin" />
-              Creating...
+              Processing...
             </>
           ) : (
             <>
               <Sparkles className="w-4 h-4 mr-2" />
-              Create Event with AI
+              Process Events
             </>
           )}
         </Button>
       </form>
 
       <div className="mt-3 text-xs text-gray-600 dark:text-gray-400">
-        <p className="font-medium mb-1">Examples:</p>
+        <p className="font-medium mb-1">You can create multiple events or update existing ones:</p>
         <ul className="space-y-1 list-disc list-inside">
-          <li>Complete homework assignment by tomorrow 11:59pm</li>
-          <li>Schedule dentist appointment next week</li>
-          <li>Prepare presentation for client meeting on Friday</li>
-          <li>Review code before deployment</li>
+          <li>"Submit report by Friday and schedule dentist for Monday 10am"</li>
+          <li>"Change the Project Review meeting to 3pm"</li>
+          <li>"Add a reminder to call Mom tonight"</li>
         </ul>
       </div>
     </div>

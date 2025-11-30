@@ -25,7 +25,7 @@ const ollama = createOllamaClient();
 /**
  * Generate system prompt with dynamic examples based on current time
  */
-function getSystemPrompt(now: Date): string {
+function getSystemPrompt(now: Date, existingEvents: any[]): string {
   // Calculate example dates based on current time
   const tomorrow = new Date(now);
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -51,16 +51,56 @@ function getSystemPrompt(now: Date): string {
   const tomorrowISO = formatWithTZ(tomorrow);
   const nextMondayISO = formatWithTZ(nextMonday);
 
-  return `You are a helpful assistant that extracts event information from natural language.
-Extract the following information and return it as a JSON object:
-- title: string (required)
-- description: string (optional)
-- type: one of "event", "homework", "meeting", "task", "reminder", or "other" (default: "event")
-- urgency: number from 1-5, where 5 is most urgent (default: 3)
-- importance: number from 1-5, where 5 is most important (default: 3)
-- dueDate: ISO 8601 datetime string (optional, only if a deadline is mentioned)
-- startTime: ISO 8601 datetime string (optional, for when the event starts)
-- endTime: ISO 8601 datetime string (optional, for when the event ends)
+  const existingEventsJson = JSON.stringify(existingEvents.map(e => ({
+    id: e.id,
+    title: e.title,
+    startTime: e.startTime,
+    dueDate: e.dueDate,
+    type: e.type
+  })), null, 2);
+
+  return `You are a helpful assistant that manages a user's schedule.
+You will receive a natural language input from the user and a list of their existing upcoming events.
+Your task is to analyze the input and decide whether to CREATE new events or UPDATE existing ones.
+
+Existing Events:
+${existingEventsJson}
+
+Instructions:
+1. Analyze the user's input to identify distinct events or updates.
+2. Compare with "Existing Events" to see if the user is referring to an existing event (e.g., "change the meeting tomorrow to 3pm").
+3. If it's a new event, create a "create" action.
+4. If it's an update to an existing event, create an "update" action with the event ID and the fields to change.
+5. Return a JSON object with a list of actions.
+
+Output Format:
+{
+  "actions": [
+    {
+      "action": "create",
+      "data": {
+        "title": "string",
+        "description": "string (optional)",
+        "type": "event" | "homework" | "meeting" | "task" | "reminder" | "other",
+        "urgency": number (1-5),
+        "importance": number (1-5),
+        "dueDate": "ISO 8601 string (optional)",
+        "startTime": "ISO 8601 string (optional)",
+        "endTime": "ISO 8601 string (optional)"
+      }
+    },
+    {
+      "action": "update",
+      "id": "existing_event_id",
+      "data": {
+        // Only include fields that need to be updated
+        "title": "string (optional)",
+        "startTime": "ISO 8601 string (optional)",
+        ...
+      }
+    }
+  ]
+}
 
 Consider these factors for urgency and importance:
 - Urgency: How time-sensitive is this? Deadlines, time-based tasks are more urgent
@@ -71,13 +111,13 @@ When calculating dates and times:
 - For relative dates like "tomorrow", "next week", calculate based on current time
 - Always output dates in ISO 8601 format with timezone (e.g., "${tomorrowISO}")
 - Consider the user's timezone (Asia/Taipei, UTC+8)
-- Use startTime and endTime for events with specific time ranges
-- Use dueDate for deadlines or tasks that need to be completed by a certain time
 
-Examples (based on current time):
-"Submit homework by tomorrow 5pm" -> {"title": "Submit homework", "type": "homework", "urgency": 5, "importance": 4, "dueDate": "${tomorrowISO}"}
-"Team meeting next Monday at 2pm" -> {"title": "Team meeting", "type": "meeting", "urgency": 3, "importance": 3, "startTime": "${nextMondayISO}"}
-"Plan vacation for next month" -> {"title": "Plan vacation", "type": "task", "urgency": 2, "importance": 3}
+Examples:
+Input: "Meeting with John tomorrow at 2pm"
+Output: {"actions": [{"action": "create", "data": {"title": "Meeting with John", "type": "meeting", "startTime": "${tomorrowISO}"}}]}
+
+Input: "Change the Team Meeting (id: 123) to 3pm" (assuming you identified the event from context)
+Output: {"actions": [{"action": "update", "id": "123", "data": {"startTime": "..."}}]}
 
 Return ONLY the JSON object, no additional text.`;
 }
@@ -85,9 +125,9 @@ Return ONLY the JSON object, no additional text.`;
 /**
  * Get LLM completion based on configured provider
  */
-async function getLLMCompletion(prompt: string, currentTime: string, now: Date): Promise<string | null> {
+async function getLLMCompletion(prompt: string, currentTime: string, now: Date, existingEvents: any[]): Promise<string | null> {
   // Generate system prompt with dynamic examples
-  const systemPrompt = getSystemPrompt(now);
+  const systemPrompt = getSystemPrompt(now, existingEvents);
 
   // Add current time context to the user prompt
   const enhancedPrompt = `Current date and time: ${currentTime}
@@ -116,7 +156,7 @@ User request: ${prompt}`;
   }
 }
 
-// POST /api/events/ai-create - Create an event from natural language
+// POST /api/events/ai-create - Create/Update events from natural language
 export const POST = withAuth(async (request, { userId }) => {
   try {
     const body = await request.json();
@@ -136,8 +176,30 @@ export const POST = withAuth(async (request, { userId }) => {
       hour12: false,
     });
 
+    // Fetch upcoming events for context (e.g., next 30 days)
+    const nextMonth = new Date(now);
+    nextMonth.setDate(nextMonth.getDate() + 30);
+
+    const existingEvents = await prisma.event.findMany({
+      where: {
+        userId,
+        OR: [
+          { startTime: { gte: now, lte: nextMonth } },
+          { dueDate: { gte: now, lte: nextMonth } },
+          // Also include events without dates if needed, but for now focus on upcoming
+        ]
+      },
+      select: {
+        id: true,
+        title: true,
+        startTime: true,
+        dueDate: true,
+        type: true,
+      }
+    });
+
     // Use configured LLM provider to parse the natural language input
-    const content = await getLLMCompletion(prompt, currentTime, now);
+    const content = await getLLMCompletion(prompt, currentTime, now, existingEvents);
 
     if (!content) {
       return NextResponse.json(
@@ -146,32 +208,59 @@ export const POST = withAuth(async (request, { userId }) => {
       );
     }
 
-    const eventData = JSON.parse(content);
+    const result = JSON.parse(content);
+    const actions = result.actions || [];
+    const results = [];
 
-    // Validate and create the event
-    const urgency = Math.min(5, Math.max(1, eventData.urgency || 3));
-    const importance = Math.min(5, Math.max(1, eventData.importance || 3));
-    const dueDate = eventData.dueDate ? new Date(eventData.dueDate) : null;
-    const startTime = eventData.startTime ? new Date(eventData.startTime) : null;
-    const endTime = eventData.endTime ? new Date(eventData.endTime) : null;
+    for (const action of actions) {
+      if (action.action === 'create') {
+        const eventData = action.data;
+        const urgency = Math.min(5, Math.max(1, eventData.urgency || 3));
+        const importance = Math.min(5, Math.max(1, eventData.importance || 3));
+        const dueDate = eventData.dueDate ? new Date(eventData.dueDate) : null;
+        const startTime = eventData.startTime ? new Date(eventData.startTime) : null;
+        const endTime = eventData.endTime ? new Date(eventData.endTime) : null;
 
-    const event = await prisma.event.create({
-      data: {
-        title: eventData.title,
-        description: eventData.description || null,
-        type: eventData.type || 'event',
-        urgency,
-        importance,
-        dueDate,
-        startTime,
-        endTime,
-        userId,
-      },
-    });
+        const event = await prisma.event.create({
+          data: {
+            title: eventData.title,
+            description: eventData.description || null,
+            type: eventData.type || 'event',
+            urgency,
+            importance,
+            dueDate,
+            startTime,
+            endTime,
+            userId,
+          },
+        });
+        results.push({ type: 'created', event });
+      } else if (action.action === 'update' && action.id) {
+        const eventData = action.data;
+        // Clean up data
+        if (eventData.dueDate) eventData.dueDate = new Date(eventData.dueDate);
+        if (eventData.startTime) eventData.startTime = new Date(eventData.startTime);
+        if (eventData.endTime) eventData.endTime = new Date(eventData.endTime);
+
+        // Verify ownership before update
+        const existing = await prisma.event.findUnique({
+          where: { id: action.id, userId }
+        });
+
+        if (existing) {
+          const event = await prisma.event.update({
+            where: { id: action.id },
+            data: eventData,
+          });
+          results.push({ type: 'updated', event });
+        }
+      }
+    }
 
     return NextResponse.json({
       success: true,
-      data: event,
+      data: results,
+      message: `Processed ${results.length} actions`
     }, { status: 201 });
   } catch (error) {
     if (error instanceof z.ZodError) {

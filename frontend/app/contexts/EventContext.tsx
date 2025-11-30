@@ -12,7 +12,7 @@ interface EventContextType {
   createEvent: (data: CreateEventInput) => Promise<{ success: boolean; event?: Event; error?: string }>;
   updateEvent: (id: string, data: UpdateEventInput) => Promise<{ success: boolean; error?: string }>;
   deleteEvent: (id: string) => Promise<{ success: boolean; error?: string }>;
-  createEventFromAI: (prompt: string) => Promise<{ success: boolean; event?: Event; error?: string }>;
+  createEventFromAI: (prompt: string) => Promise<{ success: boolean; data?: any[]; message?: string; error?: string }>;
 }
 
 const EventContext = createContext<EventContextType | undefined>(undefined);
@@ -111,22 +111,31 @@ export function EventProvider({ children }: { children: React.ReactNode }) {
 
   const createEventFromAI = async (prompt: string) => {
     try {
-      const response = await apiClient.createEventFromNaturalLanguage(prompt);
+      const response = await fetch('/api/events/ai-create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ prompt }),
+      });
 
-      if (response.success && response.data) {
-        const newEvent = {
-          ...response.data,
-          dueDate: response.data.dueDate ? new Date(response.data.dueDate) : null,
-          createdAt: new Date(response.data.createdAt),
-          updatedAt: new Date(response.data.updatedAt),
-        };
-        setEvents(prev => [...prev, newEvent]);
-        return { success: true, event: newEvent };
+      const data = await response.json();
+
+      if (!response.ok) {
+        return { success: false, error: data.error };
       }
 
-      return { success: false, error: response.error };
+      // Refresh events to show new/updated ones
+      await fetchEvents();
+
+      return { 
+        success: true, 
+        data: data.data,
+        message: data.message 
+      };
     } catch (error) {
-      return { success: false, error: 'Failed to create event from AI' };
+      console.error('Error creating event from AI:', error);
+      return { success: false, error: 'Failed to create event' };
     }
   };
 
